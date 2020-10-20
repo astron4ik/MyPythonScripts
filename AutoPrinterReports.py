@@ -80,7 +80,7 @@ def printers(group):
         Получает и записывает значения serial и total pages для каждого принтера.
         Записывает в excel.
     """
-    hosts = z.host.get(groupids=group, output=['hostid', 'name', 'host'])  # Группа Принтеры Офис
+    hosts = z.host.get(groupids=group['ID'], output=['hostid', 'name', 'host'])  # Группа Принтеры Офис
     for host in hosts:
         name = host['name']  # Имя узла принтера
         ip = host['host']
@@ -104,6 +104,20 @@ def printers(group):
                 elif cell.value != serial:  # Создает словарь из серийников, для сравнения
                     # column1 = cell.column_letter
                     dict_excel[cell.value] = cell.coordinate[:-1:]
+
+
+def all_value_result(string):
+    """
+        Функция для записи в ячейки значений из словаря
+        *** Сооброзить на свежую голову ***
+    """
+    for cellObj in sheet_ranges['A1':'K4']:
+        for cell in cellObj:
+            if string.startswith('=' + cell.value):
+                coord_value = cell.column_letter + coord
+                sheet_ranges[coord_value] = string
+                summa_prom.append(coord_value)
+                return
 
 
 def raschet(cell, row_2):
@@ -157,7 +171,12 @@ except OSError:
     log("Нет соединения с сервером Zabbix\n\n")
     raise
 
-dist_book = {'Офис': 45, 'Склад': 44, 'ОСП': 42, 'Москва': 61}
+dist_book = {
+    'Офис': {'ID': 45, 'cord_summa': None},
+    'Склад': {'ID': 44, 'cord_summa': None},
+    'ОСП': {'ID': 42, 'cord_summa': None},
+    'Москва': {'ID': 61, 'cord_summa': None},
+}
 
 for book in dist_book:
     sheet_ranges = wb[book]
@@ -189,6 +208,7 @@ for book in dist_book:
                     summa_string = '+'.join(summa)
                     summa_string = "=" + summa_string
                     sheet_ranges[coordinate] = summa_string
+                    dist_book[book]['cord_summa'] = '=' + sheet_ranges.title + '!' + coordinate
                 elif value_5 == "Разница Сумм":
                     raschet(cell, row_2)
 
@@ -206,6 +226,39 @@ for book in dist_book:
             sheet_ranges[coord7] = "Резерв!"
             sheet_ranges[coord8] = "Резерв!"
 
+            # Копируем занчение из предыдущей ячейки, если нету данный в zabbix
+            prev_cord = int(coord) - 1
+            last_coord_pages = dict_excel[dict_keys] + coord
+            prev_coord_pages = dict_excel[dict_keys] + str(prev_cord)
+            sheet_ranges[last_coord_pages].value = sheet_ranges[prev_coord_pages].value
+
+# Собираем лист 'AK'
+sheet_ranges = wb['AK']
+coord = data()
+coord3 = "A" + coord
+coord4 = "K" + coord
+summa = []
+summa_prom = []
+
+for book in dist_book:
+    all_value_result(dist_book[book]['cord_summa'])
+
+for cellObj in sheet_ranges[coord3:coord4]:
+    for cell in cellObj:
+        coordinate = cell.coordinate
+        row = cell.row  # текущий ряд ячейки
+        row_2 = row_1(row)  # предыдущий ряд ячейки
+        coord_column1 = cell.column  # текущий столбец ячейки
+        value_2 = sheet_ranges[cell.column_letter + str(2)].value  # Чтение ячейки столбца типа (счетчик и т.п.)
+        if cell.value is None:
+            if value_2 == "Сумма":
+                for element in summa_prom:
+                    summa.append(element)
+                summa_string = '+'.join(summa)
+                summa_string = "=" + summa_string
+                sheet_ranges[coordinate] = summa_string
+            elif value_2 == "Разница Сумм":
+                raschet(cell, row_2)
 
 try:
     wb.save(path)
