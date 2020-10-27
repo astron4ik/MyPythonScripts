@@ -61,14 +61,15 @@ def data():
     return coord
 
 
-def total_pages_and_serial(d, number):
+def total_pages_and_serial(d, varItem):
     """
         Определяет серийный номер и число напечатанных страниц.
         Получает и обрабатывает данные из Zabbix.
     """
     items = z.item.get(hostids=d, output=['itemid', 'name'])  # Это id принтера
-    d = items[number]
-    d = d.get('itemid')
+    for item in items:
+        if item['name'] == varItem:
+            d = item['itemid']
     a = z.item.get(itemids=d, output=['lastvalue'])  # d это id total pages
     b = a[0]
     b = b.get('lastvalue')
@@ -86,8 +87,8 @@ def printers(group):
         ip = host['host']
         # print(host['hostid'],host['name'])
         host = host.get('hostid')
-        pages = int(total_pages_and_serial(host, 6))  # Узнаем Кол-во Страниц, 6 это номер позиции total pages
-        serial = total_pages_and_serial(host, 2)  # Узнаем Серийник, 2 это номер позиции serial
+        pages = int(total_pages_and_serial(host, 'Total pages'))  # Узнаем Кол-во Страниц
+        serial = total_pages_and_serial(host, 'Serial number')  # Узнаем Серийник
         serial_zabbix.append(serial)
         for cellObj in sheet_ranges['A2':'DR2']:
             for cell in cellObj:
